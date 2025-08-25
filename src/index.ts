@@ -4,6 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { GitHubClient, PullRequestData, Comment, CheckRun, Status } from './github-client.js';
 import dotenv from 'dotenv';
@@ -29,6 +30,7 @@ class GitHubMCPServer {
       {
         capabilities: {
           tools: {},
+          resources: {},
         },
       }
     );
@@ -48,6 +50,10 @@ class GitHubMCPServer {
   private setupHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: this.getTools(),
+    }));
+
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+      resources: this.getResources(),
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -100,6 +106,7 @@ class GitHubMCPServer {
   }
 
   private getTools() {
+    console.log("[GitHubMCPServer] Listing tools...");
     return [
       {
         name: 'github_set_token',
@@ -192,6 +199,24 @@ class GitHubMCPServer {
           },
           required: ['owner', 'repo', 'pull_number'],
         },
+      },
+    ];
+  }
+
+  private getResources() {
+    console.log("[GitHubMCPServer] Listing resources...");
+    return [
+      {
+        uri: 'github://pull-requests',
+        name: 'GitHub Pull Requests',
+        description: 'Access GitHub pull requests for repositories',
+        mimeType: 'application/json',
+      },
+      {
+        uri: 'github://repository',
+        name: 'GitHub Repository',
+        description: 'Access GitHub repository information',
+        mimeType: 'application/json',
       },
     ];
   }
