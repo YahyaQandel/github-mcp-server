@@ -328,4 +328,145 @@ export class GitHubClient {
       return [];
     }
   }
+
+  async getPullRequestDetails(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<any> {
+    try {
+      console.error(`[GitHubClient] Fetching PR #${pullNumber} details for ${owner}/${repo}`);
+      
+      const pr = await this.octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+      });
+      
+      console.error(`[GitHubClient] Got PR data for #${pullNumber}`);
+
+      const files = await this.octokit.paginate(
+        this.octokit.rest.pulls.listFiles,
+        {
+          owner,
+          repo,
+          pull_number: pullNumber,
+          per_page: 100,
+        }
+      );
+
+      const commits = await this.octokit.paginate(
+        this.octokit.rest.pulls.listCommits,
+        {
+          owner,
+          repo,
+          pull_number: pullNumber,
+          per_page: 100,
+        }
+      );
+
+      return {
+        number: pr.data.number,
+        title: pr.data.title,
+        state: pr.data.state,
+        created_at: pr.data.created_at,
+        updated_at: pr.data.updated_at,
+        closed_at: pr.data.closed_at,
+        merged_at: pr.data.merged_at,
+        draft: pr.data.draft || false,
+        user: {
+          login: pr.data.user?.login || 'unknown',
+          avatar_url: pr.data.user?.avatar_url || '',
+          html_url: pr.data.user?.html_url || '',
+        },
+        assignees: pr.data.assignees?.map(a => ({
+          login: a.login,
+          avatar_url: a.avatar_url,
+        })) || [],
+        labels: pr.data.labels.map(l => ({
+          name: typeof l === 'string' ? l : l.name || '',
+          color: typeof l === 'string' ? '' : l.color || '',
+          description: typeof l === 'string' ? null : l.description || null,
+        })),
+        milestone: pr.data.milestone ? {
+          title: pr.data.milestone.title,
+          state: pr.data.milestone.state,
+        } : null,
+        head: {
+          ref: pr.data.head.ref,
+          sha: pr.data.head.sha,
+        },
+        base: {
+          ref: pr.data.base.ref,
+          sha: pr.data.base.sha,
+        },
+        html_url: pr.data.html_url,
+        diff_url: pr.data.diff_url,
+        patch_url: pr.data.patch_url,
+        body: pr.data.body,
+        comments: pr.data.comments,
+        review_comments: pr.data.review_comments,
+        commits: pr.data.commits,
+        additions: pr.data.additions,
+        deletions: pr.data.deletions,
+        changed_files: pr.data.changed_files,
+        mergeable: pr.data.mergeable,
+        mergeable_state: pr.data.mergeable_state,
+        requested_reviewers: pr.data.requested_reviewers?.map(r => ({
+          login: typeof r === 'string' ? r : r.login,
+        })) || [],
+        requested_teams: pr.data.requested_teams?.map(t => ({
+          name: t.name,
+        })) || [],
+        files: files.map(file => ({
+          filename: file.filename,
+          status: file.status,
+          additions: file.additions,
+          deletions: file.deletions,
+          changes: file.changes,
+          patch: file.patch || '',
+          blob_url: file.blob_url,
+          raw_url: file.raw_url,
+          contents_url: file.contents_url,
+        })),
+        commits_list: commits.map(commit => ({
+          sha: commit.sha,
+          message: commit.commit.message,
+          author: {
+            name: commit.commit.author?.name || 'unknown',
+            email: commit.commit.author?.email || '',
+            date: commit.commit.author?.date || '',
+          },
+          url: commit.html_url,
+        })),
+      };
+    } catch (error) {
+      console.error('[GitHubClient] Error fetching PR details:', error);
+      throw error;
+    }
+  }
+
+  async getPullRequestDiff(
+    owner: string,
+    repo: string,
+    pullNumber: number
+  ): Promise<string> {
+    try {
+      console.error(`[GitHubClient] Fetching PR #${pullNumber} diff for ${owner}/${repo}`);
+      
+      const response = await this.octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+        owner,
+        repo,
+        pull_number: pullNumber,
+        headers: {
+          Accept: 'application/vnd.github.v3.diff',
+        },
+      });
+
+      return response.data as unknown as string;
+    } catch (error) {
+      console.error('[GitHubClient] Error fetching PR diff:', error);
+      throw error;
+    }
+  }
 }

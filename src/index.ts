@@ -87,6 +87,14 @@ class GitHubMCPServer {
               repo: string;
               pull_number: number;
             });
+          
+          case 'github_get_pr_details':
+            return await this.getPRDetails(args as {
+              owner: string;
+              repo: string;
+              pull_number: number;
+              include_diff?: boolean;
+            });
 
           default:
             throw new Error(`Unknown tool: ${name}`);
@@ -195,6 +203,33 @@ class GitHubMCPServer {
             pull_number: {
               type: 'number',
               description: 'Pull request number',
+            },
+          },
+          required: ['owner', 'repo', 'pull_number'],
+        },
+      },
+      {
+        name: 'github_get_pr_details',
+        description: 'Get detailed information about a specific pull request including files changed, commits, and optionally the full diff',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner: {
+              type: 'string',
+              description: 'Repository owner (user or organization)',
+            },
+            repo: {
+              type: 'string',
+              description: 'Repository name',
+            },
+            pull_number: {
+              type: 'number',
+              description: 'Pull request number',
+            },
+            include_diff: {
+              type: 'boolean',
+              description: 'Include the full diff/patch content (may be large)',
+              default: false,
             },
           },
           required: ['owner', 'repo', 'pull_number'],
@@ -371,6 +406,54 @@ class GitHubMCPServer {
         },
       ],
     };
+  }
+
+  private async getPRDetails(args: {
+    owner: string;
+    repo: string;
+    pull_number: number;
+    include_diff?: boolean;
+  }) {
+    try {
+      if (!this.githubClient) {
+        throw new Error('GitHub token not available. Set GITHUB_TOKEN environment variable or use github_set_token.');
+      }
+
+      console.error(`[GitHubMCPServer] getPRDetails called for ${args.owner}/${args.repo} PR #${args.pull_number}`);
+
+      const details = await this.githubClient.getPullRequestDetails(
+        args.owner,
+        args.repo,
+        args.pull_number
+      );
+
+      console.error(`[GitHubMCPServer] Got PR details, preparing response`);
+
+      let diff: string | undefined;
+      if (args.include_diff) {
+        diff = await this.githubClient.getPullRequestDiff(
+          args.owner,
+          args.repo,
+          args.pull_number
+        );
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              repository: `${args.owner}/${args.repo}`,
+              pull_request: details,
+              diff: diff,
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error(`[GitHubMCPServer] Error in getPRDetails:`, error);
+      throw error;
+    }
   }
 
   async run() {
