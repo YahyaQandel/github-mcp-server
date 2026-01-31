@@ -58,14 +58,14 @@ class GitHubMCPServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      console.log("Receiving request for tool:", name);
+      console.error("Receiving request for tool:", name);
       try {
         switch (name) {
           case 'github_set_token':
             return await this.setToken(args as { token: string });
-          
+
           case 'github_list_pull_requests':
-            console.log("Listing pull requests...")
+            console.error("Listing pull requests...")
             return await this.listPullRequests(args as {
               owner: string;
               repo: string;
@@ -114,7 +114,7 @@ class GitHubMCPServer {
   }
 
   private getTools() {
-    console.log("[GitHubMCPServer] Listing tools...");
+    console.error("[GitHubMCPServer] Listing tools...");
     return [
       {
         name: 'github_set_token',
@@ -239,7 +239,7 @@ class GitHubMCPServer {
   }
 
   private getResources() {
-    console.log("[GitHubMCPServer] Listing resources...");
+    console.error("[GitHubMCPServer] Listing resources...");
     return [
       {
         uri: 'github://pull-requests',
